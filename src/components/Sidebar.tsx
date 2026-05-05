@@ -67,7 +67,7 @@ export default function Sidebar({ open, onClose, currentConvId, onSelectConv, on
               {planLabel && <div style={s.planBadge}>{planLabel}</div>}
               {!isPaid && (
                 <a href="https://note.com/yumekane/n/n19951f307091" target="_blank" rel="noopener noreferrer" style={s.upgradeBadge}>
-                  有料プランへ →
+                  有料プランを見る →
                 </a>
               )}
             </div>

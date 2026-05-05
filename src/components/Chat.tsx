@@ -223,7 +223,7 @@ export default function Chat({ conversationId, onConversationCreated, onOpenAuth
             </div>
           ) : (
             <a href="https://note.com/yumekane/n/n19951f307091" target="_blank" rel="noopener noreferrer" style={styles.upgradeBtn}>
-              有料プラン
+              無料プラン中
             </a>
           )}
         </div>
