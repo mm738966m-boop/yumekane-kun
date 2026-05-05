@@ -1,0 +1,18 @@
+# 依存パッケージ
+node_modules/
+
+# Next.jsビルド成果物
+.next/
+out/
+
+# 環境変数（APIキーが含まれるため絶対にコミットしない）
+.env
+.env.local
+.env.*.local
+
+# OS生成ファイル
+.DS_Store
+
+# ログ
+*.log
+npm-debug.log*
