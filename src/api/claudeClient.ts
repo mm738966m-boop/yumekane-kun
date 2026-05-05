@@ -7,17 +7,20 @@ export interface ChatMessage {
 }
 
 // Claude APIを呼び出してユメカネくんとして回答を生成する
-export async function askYumekane(messages: ChatMessage[]): Promise<string> {
-  // 関数呼び出し時に初期化することで、env varを確実に読み込む
+export async function askYumekane(messages: ChatMessage[], profileContext = ''): Promise<string> {
   const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
   });
+
+  const system = profileContext
+    ? `${SYSTEM_PROMPT}\n\n${profileContext}`
+    : SYSTEM_PROMPT;
 
   try {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system,
       messages,
     });
 

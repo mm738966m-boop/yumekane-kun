@@ -16,3 +16,4 @@ out/
 # ログ
 *.log
 npm-debug.log*
+.vercel
