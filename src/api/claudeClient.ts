@@ -18,17 +18,18 @@ export async function askYumekane(messages: ChatMessage[], profileContext = ''):
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
+      model: 'claude-sonnet-5',
+      max_tokens: 2048,
       system,
       messages,
     });
 
-    const content = response.content[0];
-    if (content.type !== 'text') {
+    // thinkingブロック等が先頭に入ることがあるため、textブロックを探す
+    const textBlock = response.content.find((c) => c.type === 'text');
+    if (!textBlock || textBlock.type !== 'text') {
       throw new Error('予期しないレスポンス形式です');
     }
-    return content.text;
+    return textBlock.text;
   } catch (error) {
     console.error('Claude API呼び出しエラー:', error);
     throw error;

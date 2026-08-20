@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { askYumekane, ChatMessage } from '@/api/claudeClient';
 import { createClient } from '@/lib/supabase/server';
 
+// 無料プランの1日あたり送信上限
+const FREE_DAILY_LIMIT = 10;
+
+function todayKeyJST(): string {
+  const now = new Date(Date.now() + 9 * 60 * 60 * 1000); // JST
+  return `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { messages, conversationId }: { messages: ChatMessage[]; conversationId?: string } = await request.json();
@@ -49,6 +57,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 無料ユーザーは1日の回数制限（Cookieベース）
+    let usedCount = 0;
+    const cookieName = `ym_c_${todayKeyJST()}`;
+    if (!isPaid) {
+      usedCount = parseInt(request.cookies.get(cookieName)?.value ?? '0', 10) || 0;
+      if (usedCount >= FREE_DAILY_LIMIT) {
+        return NextResponse.json({
+          limitReached: true,
+          error: `無料プランは1日${FREE_DAILY_LIMIT}回までです`,
+        }, { status: 429 });
+      }
+    }
+
     const reply = await askYumekane(messages, profileContext);
 
     // 有料ユーザーなら会話を保存
@@ -85,7 +106,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ reply, conversationId: currentConvId });
+    const res = NextResponse.json({
+      reply,
+      conversationId: currentConvId,
+      ...(isPaid ? {} : { remaining: FREE_DAILY_LIMIT - usedCount - 1 }),
+    });
+    if (!isPaid) {
+      // 翌日0時(JST)に失効するカウンターCookie
+      res.cookies.set(cookieName, String(usedCount + 1), { maxAge: 60 * 60 * 24, path: '/' });
+    }
+    return res;
   } catch (error) {
     console.error('チャットAPI エラー:', error);
     return NextResponse.json({ error: 'サーバーエラーが発生しました' }, { status: 500 });

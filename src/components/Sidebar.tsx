@@ -66,7 +66,7 @@ export default function Sidebar({ open, onClose, currentConvId, onSelectConv, on
               <div style={s.userEmail}>{user.email}</div>
               {planLabel && <div style={s.planBadge}>{planLabel}</div>}
               {!isPaid && (
-                <a href="https://note.com/yumekane/n/n19951f307091" target="_blank" rel="noopener noreferrer" style={s.upgradeBadge}>
+                <a href="/upgrade" style={s.upgradeBadge}>
                   有料プランを見る →
                 </a>
               )}

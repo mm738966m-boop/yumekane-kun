@@ -124,6 +124,8 @@ export default function Chat({ conversationId, onConversationCreated, onOpenAuth
   const [isLoading, setIsLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [hasCharImage, setHasCharImage] = useState(true);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // 過去の会話をロード
@@ -169,10 +171,17 @@ export default function Chat({ conversationId, onConversationCreated, onOpenAuth
         body: JSON.stringify({ messages: apiMessages, conversationId }),
       });
       const data = await res.json();
+
+      if (res.status === 429 && data.limitReached) {
+        setLimitReached(true);
+        setMessages([...nextMessages, { role: 'assistant', content: '今日の無料相談はここまでだよ🙏\nまた明日話そうね！\n\n「もっと相談したい」「会話を覚えていてほしい」って人は、有料プランを見てみてね✨' }]);
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
 
       const assistantMsg: Message = { role: 'assistant', content: data.reply };
       setMessages([...nextMessages, assistantMsg]);
+      if (typeof data.remaining === 'number') setRemaining(data.remaining);
 
       if (data.conversationId && !conversationId) {
         onConversationCreated(data.conversationId);
@@ -181,6 +190,17 @@ export default function Chat({ conversationId, onConversationCreated, onOpenAuth
       setMessages([...nextMessages, { role: 'assistant', content: 'ごめんね、今ちょっとうまく答えられなかったよ😢 もう一度聞いてみてね！' }]);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // PCではEnterで送信（Shift+Enterで改行）。日本語変換中は無視。
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      const isMobile = typeof navigator !== 'undefined' && /iPhone|iPad|Android/i.test(navigator.userAgent);
+      if (!isMobile) {
+        e.preventDefault();
+        sendMessage();
+      }
     }
   }
 
@@ -222,7 +242,7 @@ export default function Chat({ conversationId, onConversationCreated, onOpenAuth
               <button style={styles.iconBtn} title="ゴール" onClick={onOpenGoals}>🎯</button>
             </div>
           ) : (
-            <a href="https://note.com/yumekane/n/n19951f307091" target="_blank" rel="noopener noreferrer" style={styles.upgradeBtn}>
+            <a href="/upgrade" style={styles.upgradeBtn}>
               無料プラン中
             </a>
           )}
@@ -231,11 +251,17 @@ export default function Chat({ conversationId, onConversationCreated, onOpenAuth
 
       {/* 有料機能バナー（未ログイン・未有料） */}
       {!isPaid && !loadingHistory && (
-        <div style={styles.paidBanner}>
-          <span>💡 有料プランで{user ? '履歴保存・' : 'ログイン・'}プロフィール記憶・ゴール管理が使えます</span>
-          {!user
+        <div style={{ ...styles.paidBanner, ...(limitReached ? styles.limitBanner : {}) }}>
+          <span>
+            {limitReached
+              ? '⏰ 今日の無料相談（10回）を使い切りました'
+              : <>💡 有料プランで{user ? '履歴保存・' : 'ログイン・'}プロフィール記憶・ゴール管理
+                {remaining !== null && remaining <= 3 && <strong>（残り{remaining}回）</strong>}
+              </>}
+          </span>
+          {!user && !limitReached
             ? <button style={styles.bannerBtn} onClick={onOpenAuth}>登録する</button>
-            : <a href="https://note.com/yumekane/n/n19951f307091" target="_blank" rel="noopener noreferrer" style={styles.bannerBtn}>詳しく見る</a>
+            : <a href="/upgrade" style={styles.bannerBtn}>{limitReached ? '無制限にする' : '詳しく見る'}</a>
           }
         </div>
       )}
@@ -284,9 +310,10 @@ export default function Chat({ conversationId, onConversationCreated, onOpenAuth
           style={styles.textarea}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="メッセージを入力（送信は→ボタン）"
+          onKeyDown={handleKeyDown}
+          placeholder={limitReached ? '今日の無料分は終了しました' : 'メッセージを入力'}
           rows={2}
-          disabled={isLoading}
+          disabled={isLoading || limitReached}
         />
         <button
           style={{ ...styles.sendButton, opacity: isLoading || !input.trim() ? 0.5 : 1, cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer' }}
@@ -315,6 +342,7 @@ const styles: Record<string, React.CSSProperties> = {
   loginHeaderBtn: { background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '6px 12px' },
   upgradeBtn: { background: 'rgba(255,215,0,0.25)', border: '1px solid rgba(255,215,0,0.5)', borderRadius: 8, color: '#FFD700', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '6px 10px', textDecoration: 'none' },
   paidBanner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: '#E8F5E9', borderBottom: '1px solid #C8E6C9', fontSize: 12, color: '#2E7D32', gap: 8 },
+  limitBanner: { background: '#FFF3E0', borderBottom: '1px solid #FFE0B2', color: '#E65100' },
   bannerBtn: { flexShrink: 0, padding: '4px 10px', background: '#2E7D32', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', textDecoration: 'none' },
   messageList: { flex: 1, overflowY: 'auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 12 },
   loadingHistory: { textAlign: 'center', color: '#aaa', fontSize: 14, padding: 40 },
